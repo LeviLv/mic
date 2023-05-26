@@ -7,7 +7,7 @@
 class Util
 {
 public:
-    static std::string extractString(const std::string &input);
+    static std::string extractString(const char *input);
 };
 
 #endif

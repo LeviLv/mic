@@ -4,7 +4,7 @@
 #include "Audio.h"
 #include "HttpReq.h"
 #include "util.h"
-#include "MqttSender.h"
+#include <PubSubClient.h>
 
 #define BUTTON_KEY 18
 #define I2S_WS 15
@@ -23,13 +23,13 @@ const int headerSize = 44;
 const char *ssid = "lu";
 const char *password = "Vitaminb88";
 const char *mqttServer = "192.168.2.1";
-const char *mqttTopic = "esp32-topic";
+const char *mqttTopic = "ha-topic";
 int mqttPort = 1883;
 
 File file;
-Audio audio;
-MQTTSender mqttClient(mqttServer, mqttPort);
-
+Audio audio(true, I2S_DAC_CHANNEL_BOTH_EN);
+WiFiClient espClient;
+PubSubClient client(espClient);
 void setup()
 {
     Serial.begin(115200);
@@ -39,7 +39,16 @@ void setup()
 
     wifiInit();
 
-    mqttClient.connect();
+    client.setServer(mqttServer, mqttPort);
+    client.setCallback(callback);
+
+    while (!client.connect("ESP32Client"))
+    {
+        delay(1000);
+        Serial.println("Connecting to MQTT server...");
+    }
+    Serial.println("Connected to MQTT server");
+    client.subscribe("esp-listen");
 
     audio.setVolume(21);
 
@@ -49,24 +58,58 @@ void setup()
 uint32_t hasAudio = 0;
 void loop()
 {
-
     if (digitalRead(BUTTON_KEY) == LOW)
     {
-        i2s_adc();
-        hasAudio = 1;
+        client.publish(mqttTopic, "speak");
+        Serial.println("speaking...");
+        vTaskDelay(1000);
     }
-    else
+
+    // if (digitalRead(BUTTON_KEY) == HIGH)
+    // {
+    //     if (hasAudio == 1)
+    //     {
+    //         char *txt = sttBaidu(filename);
+    //         char *result = toGpt(txt);
+    //         std::string command = Util::extractString(result);
+    //         // mqttClient.publish(mqttTopic, command.c_str());
+    //         audio.connecttospeech(command.substr(0, command.find("${")).c_str(), "zh");
+    //         hasAudio = 0;
+    //     }
+    // }
+
+    if (!client.connected())
     {
-        if (hasAudio == 1)
+        while (!client.connect("ESP32Client"))
         {
-            char *txt = sttBaidu(filename);
-            char *result = toGpt(txt);
-            std::string command = Util::extractString(result);
-            mqttClient.publish(mqttTopic, command.c_str());
-            audio.connecttospeech(command.substr(0, command.find("${")).c_str(), "zh");
-            hasAudio = 0;
+            delay(1000);
+            Serial.println("Connecting to MQTT server...");
         }
+        Serial.println("Connected to MQTT server");
+        client.subscribe("esp-listen");
     }
+    client.loop();
+    audio.loop();
+}
+
+void callback(char *topic, byte *payload, unsigned int length)
+{
+    String message = "";
+    for (int i = 0; i < length; i++)
+    {
+        message += (char)payload[i];
+    }
+    audio.connecttospeech(message.c_str(), "zh");
+
+    Serial.println("send to llm：" + message);
+    String result = toGpt(message);
+    Serial.println("llm result:" + result);
+
+    int delimiterIndex = result.indexOf("${");
+    String part1 = result.substring(0, delimiterIndex);
+    String part2 = result.substring(delimiterIndex + 2, result.lastIndexOf("}"));
+    client.publish(mqttTopic, part2.c_str());
+    audio.connecttospeech(part1.c_str(), "zh");
 }
 
 void wifiInit()

@@ -8,6 +8,7 @@ char *sttBaidu(const char *filename)
     File file;
     file = SPIFFS.open(filename, "r");
     HTTPClient http;
+    http.setTimeout(15000);
     http.begin("http://vop.baidu.com/server_api?cuid=123123&token=24.208062b61f2056a7abaa1e1a7db3c348.2592000.1687105398.282335-33752582&dev_pid=1537");
     http.addHeader("Content-Type", "audio/wav;rate=16000");
     int httpResponseCode = http.sendRequest("POST", &file, file.size());
@@ -28,7 +29,20 @@ char *sttBaidu(const char *filename)
     return "";
 }
 
-char *toGpt(const char *txt)
+String toGpt(String txt)
 {
-    return "";
+    HTTPClient http;
+    http.setTimeout(15000);
+    http.begin("http://192.168.3.157:99/chat?str=" + txt);
+    int httpResponseCode = http.GET();
+    if (httpResponseCode == 200)
+    {
+        return http.getString();
+    }
+    else
+    {
+        Serial.println(httpResponseCode);
+    }
+    http.end();
+    return "error";
 }

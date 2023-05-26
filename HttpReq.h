@@ -4,6 +4,6 @@
 #include <Arduino.h>
 
 char *sttBaidu(const char *file);
-char *toGpt(const char *txt);
+String toGpt(String txt);
 
 #endif

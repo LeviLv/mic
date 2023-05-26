@@ -1,14 +1,19 @@
 #include "util.h"
 
-std::string Util::extractString(const std::string &input)
+std::string Util::extractString(const char *input)
 {
-    std::size_t start = input.find("${");
-    if (start == std::string::npos)
-        return ""; 
+    std::string result;
+    std::string inputStr(input);
 
-    std::size_t end = input.find("}", start + 2);
-    if (end == std::string::npos)
-        return "";
+    size_t startPos = inputStr.find("${");
+    if (startPos != std::string::npos)
+    {
+        size_t endPos = inputStr.find("}", startPos);
+        if (endPos != std::string::npos)
+        {
+            result = inputStr.substr(startPos + 2, endPos - startPos - 2);
+        }
+    }
 
-    return input.substr(start + 2, end - start - 2);
+    return result;
 }
